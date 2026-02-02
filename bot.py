@@ -20,7 +20,7 @@ from locales import get_text, get_wmo, TEXTS
 # --- КОНФИГУРАЦИЯ ---
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
-DB_FILE = "weather_bot_v2.db" # Новое имя базы
+DB_FILE = "weather_bot_v2.db"
 
 # --- БАЗА ДАННЫХ ---
 def init_db():
@@ -76,14 +76,18 @@ def update_last_run(chat_id):
     conn.close()
 
 # --- API ---
-async def search_cities(city_name):
-    # Ищем города и возвращаем список (название, страна, координаты)
-    url = f"https://geocoding-api.open-meteo.com/v1/search?name={city_name}&count=5&language=en&format=json"
+async def search_cities(city_name, lang_code):
+    # ИСПРАВЛЕНИЕ: Передаем язык пользователя в API (ru/uk/en)
+    # Это позволяет находить локальные названия (Каменское, Київ и т.д.)
+    if lang_code not in ['ru', 'uk', 'en', 'de', 'fr', 'pl']: 
+        lang_code = 'en'
+        
+    url = f"https://geocoding-api.open-meteo.com/v1/search?name={city_name}&count=10&language={lang_code}&format=json"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as resp:
             data = await resp.json()
             if "results" not in data: return []
-            return data["results"] # List of dicts
+            return data["results"]
 
 async def get_weather(lat, lon):
     url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&wind_speed_unit=ms&timezone=auto"
@@ -92,18 +96,17 @@ async def get_weather(lat, lon):
             data = await resp.json()
             return data["current"]
 
-# --- СТЕЙТЫ ---
+# --- СТЕЙТЫ И УТИЛИТЫ ---
 class SetupState(StatesGroup):
     waiting_city_input = State()
-    waiting_city_selection = State() # Выбор из кнопок
+    waiting_city_selection = State()
     waiting_interval = State()
     waiting_time = State()
 
 router = Router()
 
-# --- ПОЛЕЗНЫЕ ФУНКЦИИ ---
 def get_flag(country_code):
-    # Превращает "US" в флаг 🇺🇸
+    if not country_code: return "🌍"
     return chr(127397 + ord(country_code[0])) + chr(127397 + ord(country_code[1]))
 
 def get_user_lang(user: types.User):
@@ -120,15 +123,13 @@ async def cmd_start(message: types.Message):
 
 @router.message(Command("setup"))
 async def cmd_setup(message: types.Message, state: FSMContext):
-    # Проверка админа
     if message.chat.type in ['group', 'supergroup', 'channel']:
         user_id = message.from_user.id
         admins = await message.bot.get_chat_administrators(message.chat.id)
         if user_id not in [a.user.id for a in admins]:
-            await message.answer(get_text('en', "only_admin")) # Default to EN for safety
+            await message.answer(get_text('en', "only_admin"))
             return
     
-    # Определяем язык и сохраняем в FSM
     lang = get_user_lang(message.from_user)
     await state.update_data(lang=lang, chat_id=message.chat.id, chat_type=message.chat.type)
     
@@ -140,23 +141,26 @@ async def process_city_search(message: types.Message, state: FSMContext):
     data = await state.get_data()
     lang = data['lang']
     
-    cities = await search_cities(message.text)
+    # Передаем язык в поиск
+    cities = await search_cities(message.text, lang)
     
     if not cities:
         await message.answer(get_text(lang, "city_not_found"))
         return
 
-    # Строим клавиатуру с выбором страны
     kb_builder = []
-    for city in cities:
+    # Лимит кнопок, чтобы не перегружать интерфейс (макс 5)
+    for city in cities[:5]:
         flag = get_flag(city.get("country_code", "XX"))
         country = city.get("country", "")
         name = city.get("name", "")
         region = city.get("admin1", "")
         
-        # Данные в callback: "sel_index"
-        btn_text = f"{flag} {name}, {country} ({region})"
-        # Сохраним список во временное хранилище state, чтобы потом достать по индексу
+        # Формируем красивую строку: 🇺🇦 Каменское, Украина (Днепропетровская обл.)
+        btn_text = f"{flag} {name}, {country}"
+        if region:
+            btn_text += f" ({region})"
+            
         kb_builder.append([InlineKeyboardButton(text=btn_text, callback_data=f"city_{cities.index(city)}")])
     
     await state.update_data(cities_cache=cities)
@@ -169,7 +173,6 @@ async def process_city_selection(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     selected_city = data['cities_cache'][idx]
     
-    # Сохраняем выбранные координаты
     await state.update_data(
         city=selected_city['name'],
         country=selected_city.get('country_code', 'XX'),
@@ -177,13 +180,13 @@ async def process_city_selection(callback: CallbackQuery, state: FSMContext):
         lon=selected_city['longitude']
     )
     
-    # Клавиатура интервалов
     lang = data['lang']
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="2 h", callback_data="int_2"), InlineKeyboardButton(text="12 h", callback_data="int_12")],
         [InlineKeyboardButton(text="24 h (Daily)", callback_data="int_24")]
     ])
     
+    # Редактируем сообщение, убирая кнопки городов
     await callback.message.edit_text(
         get_text(lang, "choose_interval", city=selected_city['name'], country=selected_city.get('country', '')),
         reply_markup=kb
@@ -201,7 +204,6 @@ async def process_interval_choice(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_text(get_text(lang, "ask_time"))
         await state.set_state(SetupState.waiting_time)
     else:
-        # Сохраняем сразу
         save_subscription(data)
         await callback.message.edit_text(get_text(lang, "done_interval", city=data['city'], val=interval))
         await state.clear()
@@ -228,7 +230,6 @@ async def sender_job(bot: Bot):
     now = datetime.now()
     
     for sub in subs:
-        # sub is a Row object
         should_send = False
         last_run = datetime.fromisoformat(sub['last_run']) if isinstance(sub['last_run'], str) else sub['last_run']
         
