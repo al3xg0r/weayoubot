@@ -127,10 +127,6 @@ def get_user_lang(user: types.User):
     lang = user.language_code.split('-')[0]
     return lang if lang in TEXTS else 'en'
 
-def check_admin(message: types.Message):
-    # Хелпер для проверки прав
-    pass # Реализовано внутри хендлеров
-
 # --- ХЕНДЛЕРЫ ---
 
 @router.message(Command("start"))
@@ -138,9 +134,13 @@ async def cmd_start(message: types.Message):
     lang = get_user_lang(message.from_user)
     await message.answer(get_text(lang, "start"))
 
+@router.message(Command("help"))
+async def cmd_help(message: types.Message):
+    lang = get_user_lang(message.from_user)
+    await message.answer(get_text(lang, "help_text"), parse_mode="HTML")
+
 @router.message(Command("setup"))
 async def cmd_setup(message: types.Message, state: FSMContext):
-    # Проверка админа
     if message.chat.type in ['group', 'supergroup', 'channel']:
         admins = await message.bot.get_chat_administrators(message.chat.id)
         if message.from_user.id not in [a.user.id for a in admins]:
@@ -156,7 +156,6 @@ async def cmd_setup(message: types.Message, state: FSMContext):
 # --- МЕНЮ НАСТРОЕК (/settings) ---
 @router.message(Command("settings"))
 async def cmd_settings(message: types.Message, state: FSMContext):
-    # Проверка админа
     if message.chat.type in ['group', 'supergroup', 'channel']:
         admins = await message.bot.get_chat_administrators(message.chat.id)
         if message.from_user.id not in [a.user.id for a in admins]:
@@ -170,7 +169,6 @@ async def cmd_settings(message: types.Message, state: FSMContext):
         await message.answer(get_text(lang, "no_sub"))
         return
 
-    # Формируем описание текущего режима
     if sub['interval_hours'] == 24:
         sched = f"Daily at {sub['target_hour']}:00"
     else:
@@ -186,7 +184,6 @@ async def cmd_settings(message: types.Message, state: FSMContext):
     
     await message.answer(text, reply_markup=kb, parse_mode="HTML")
 
-# Обработка кнопок меню
 @router.callback_query(F.data == "set_stop")
 async def settings_stop(callback: CallbackQuery):
     lang = get_user_lang(callback.from_user)
@@ -196,14 +193,12 @@ async def settings_stop(callback: CallbackQuery):
 @router.callback_query(F.data == "set_city")
 async def settings_city(callback: CallbackQuery, state: FSMContext):
     lang = get_user_lang(callback.from_user)
-    # Запускаем флоу настройки заново
     await state.update_data(lang=lang, chat_id=callback.message.chat.id, chat_type=callback.message.chat.type)
     await state.set_state(SetupState.waiting_city_input)
     await callback.message.edit_text(get_text(lang, "setup_start"))
 
 @router.callback_query(F.data == "set_time")
 async def settings_time(callback: CallbackQuery, state: FSMContext):
-    # Загружаем текущие данные из БД в стейт, чтобы не потерять город
     sub = get_subscription(callback.message.chat.id)
     lang = get_user_lang(callback.from_user)
     
@@ -211,7 +206,6 @@ async def settings_time(callback: CallbackQuery, state: FSMContext):
         await callback.message.answer(get_text(lang, "no_sub"))
         return
 
-    # Записываем старые данные о городе в память
     await state.update_data(
         lang=lang, 
         chat_id=sub['chat_id'], 
@@ -222,7 +216,6 @@ async def settings_time(callback: CallbackQuery, state: FSMContext):
         lon=sub['lon']
     )
 
-    # Показываем выбор времени сразу
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="2 h", callback_data="int_2"), InlineKeyboardButton(text="12 h", callback_data="int_12")],
         [InlineKeyboardButton(text="24 h (Daily)", callback_data="int_24")]
@@ -234,9 +227,7 @@ async def settings_time(callback: CallbackQuery, state: FSMContext):
     )
     await state.set_state(SetupState.waiting_interval)
 
-
 # --- ЛОГИКА НАСТРОЙКИ (SETUP) ---
-
 @router.message(SetupState.waiting_city_input)
 async def process_city_search(message: types.Message, state: FSMContext):
     data = await state.get_data()

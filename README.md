@@ -23,6 +23,16 @@
 * **Scheduling**: APScheduler (AsyncIOScheduler)
 * **API**: [Open-Meteo](https://open-meteo.com/) (No API key required)
 
+## 👥 Using in Groups & Channels
+
+The bot is perfect for group chats (family, work) or channels.
+
+**Instructions:**
+1. **Add the bot** to your Group or Channel.
+2. **Promote it to Administrator** (This is required for the bot to send messages).
+3. Type `/setup` in the chat.
+4. Only group admins can configure the bot.
+
 ## 📦 Installation & Deployment
 
 ### 1. Clone the repository
@@ -70,6 +80,7 @@ To run the bot in the background on Ubuntu/Debian:
 * `/start` - Initialize the bot.
 * `/setup` - Configure weather subscription (City & Interval).
 * `/settings` - Manage current subscription (Change City/Time or Unsubscribe).
+* `/help` - Show instructions.
 
 ## 📄 License
 
