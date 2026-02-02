@@ -1,24 +1,76 @@
+# Your Weather Bot 🌤️
 
-# Your Weather Bot 🌤
+**Your Weather Bot** is a professional, asynchronous Telegram bot designed to deliver accurate weather forecasts on a user-defined schedule. Built with **Python 3.10+** and **Aiogram 3**, it supports private chats, groups, and channels with role-based access control.
 
-Telegram bot for sending weather updates on a schedule.
+## 🚀 Features
 
-## 🚀 Functionality
-* 🌍 Search for a city by name (Open-Meteo Geocoding).
-* 🕒 Interval settings: every 2 hours, 12 hours, or once a day at a specific time.
-* 💾 Storing subscribers in SQLite.
-* 🔄 Asynchronous delivery without delays.
+* **🌍 Smart Geocoding**: Search for cities in any language. The bot handles duplicate names (e.g., "Paris, US" vs "Paris, FR") by offering an interactive country selection menu.
+* **📅 Flexible Scheduling**:
+    * Every 2 hours
+    * Every 12 hours
+    * **Daily at a specific time** (e.g., exactly at 08:00 AM)
+* **⚙️ Full Management**:
+    * `/settings` menu to change the city, reschedule, or unsubscribe.
+    * Admin-only configuration in groups and channels.
+* **🌐 Multi-Language Support**: Automatically detects user language (English 🇺🇸, Russian 🇷🇺, Ukrainian 🇺🇦).
+* **⚡ High Performance**: Asynchronous architecture using `aiohttp` and `APScheduler` ensures zero blocking, even with high load.
 
-## 🛠 Stack
-* Python 3.10+
-* Aiogram 3
-* APScheduler
-* Aiohttp
-* SQLite
+## 🛠️ Tech Stack
 
-## 📦 Installation
-1. Clone the repo.
-2. Create `.env` with `BOT_TOKEN`.
-3. `pip install -r requirements.txt`
-4. `python bot.py`
+* **Language**: Python 3.10+
+* **Framework**: [Aiogram 3.x](https://github.com/aiogram/aiogram)
+* **Database**: SQLite (Automatic initialization)
+* **Scheduling**: APScheduler (AsyncIOScheduler)
+* **API**: [Open-Meteo](https://open-meteo.com/) (No API key required)
 
+## 📦 Installation & Deployment
+
+### 1. Clone the repository
+```bash
+git clone [https://github.com/YOUR_USERNAME/weayoubot.git](https://github.com/YOUR_USERNAME/weayoubot.git)
+cd weayoubot
+```
+
+### 2. Set up Virtual Environment
+```bash
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### 3. Configuration
+Create a `.env` file in the root directory:
+```env
+BOT_TOKEN=123456789:YOUR_TELEGRAM_BOT_TOKEN
+```
+
+### 4. Run
+```bash
+python bot.py
+```
+
+## 🖥️ Server Deployment (Systemd)
+
+To run the bot in the background on Ubuntu/Debian:
+
+1.  Edit `weayoubot.service` (update paths to your directory).
+2.  Copy to systemd:
+    ```bash
+    sudo cp weayoubot.service /etc/systemd/system/
+    ```
+3.  Enable and start:
+    ```bash
+    sudo systemctl daemon-reload
+    sudo systemctl enable weayoubot
+    sudo systemctl start weayoubot
+    ```
+
+## 📝 Usage
+
+* `/start` - Initialize the bot.
+* `/setup` - Configure weather subscription (City & Interval).
+* `/settings` - Manage current subscription (Change City/Time or Unsubscribe).
+
+## 📄 License
+
+This project is open-source and available under the [MIT License](LICENSE).
