@@ -2,20 +2,27 @@
 
 TEXTS = {
     "en": {
-        "start": "👋 Hi! I'm @WeaYouBot.\nI will send weather forecasts here.\n\nType /setup to start.",
+        "start": "👋 Hi! I'm @WeaYouBot.\nI will send weather forecasts here.\n\nType /setup to start or /settings to manage.",
         "setup_start": "🌍 Enter the **City Name** to search:",
         "city_not_found": "❌ City not found. Try again:",
         "choose_city": "✅ Found multiple locations. Please choose one:",
         "choose_interval": "⏱ How often should I send the weather for **{city}** ({country})?",
-        "ask_time": "⏰ Enter the hour (0-23) for daily report (Server time):",
+        "ask_time": "⏰ Enter the hour (0-23) for daily report:",
         "invalid_time": "❌ Invalid number. Enter 0-23.",
         "done_interval": "✅ Done! Weather for **{city}** every {val} hours.",
         "done_daily": "✅ Done! Weather for **{city}** daily at {val}:00.",
         "only_admin": "⚠️ Only admins can configure this bot.",
-        "weather_msg": "🌡 <b>Weather in {city} ({country})</b>\n\n{desc}\nTemp: {temp}°C (Feels: {feels}°C)\nWind: {wind} m/s\nHumidity: {hum}%"
+        "weather_msg": "🌡 <b>Weather in {city} ({country})</b>\n\n{desc}\nTemp: {temp}°C (Feels: {feels}°C)\nWind: {wind} m/s\nHumidity: {hum}%",
+        # Новые тексты
+        "settings_title": "⚙️ <b>Settings</b>\n\n📍 City: <b>{city}</b>\n🕒 Schedule: <b>{schedule}</b>",
+        "btn_change_city": "🌍 Change City",
+        "btn_change_time": "⏰ Change Schedule",
+        "btn_stop": "🛑 Unsubscribe",
+        "stop_success": "✅ Subscription stopped. I won't send messages anymore.",
+        "no_sub": "❌ You don't have an active subscription. Type /setup."
     },
     "ru": {
-        "start": "👋 Привет! Я @WeaYouBot.\nЯ буду присылать погоду сюда по расписанию.\n\nЖми /setup для настройки.",
+        "start": "👋 Привет! Я @WeaYouBot.\nЯ буду присылать погоду сюда по расписанию.\n\nЖми /setup для настройки или /settings для управления.",
         "setup_start": "🌍 Введите **название города** для поиска:",
         "city_not_found": "❌ Город не найден. Попробуйте еще раз:",
         "choose_city": "✅ Найдено несколько мест. Выберите нужное:",
@@ -25,10 +32,17 @@ TEXTS = {
         "done_interval": "✅ Готово! Погода для **{city}** каждые {val} ч.",
         "done_daily": "✅ Готово! Погода для **{city}** каждый день в {val}:00.",
         "only_admin": "⚠️ Только администраторы могут настраивать бота.",
-        "weather_msg": "🌡 <b>Погода в {city} ({country})</b>\n\n{desc}\nТемп: {temp}°C (Ощущается: {feels}°C)\nВетер: {wind} м/с\nВлажность: {hum}%"
+        "weather_msg": "🌡 <b>Погода в {city} ({country})</b>\n\n{desc}\nТемп: {temp}°C (Ощущается: {feels}°C)\nВетер: {wind} м/с\nВлажность: {hum}%",
+        # Новые тексты
+        "settings_title": "⚙️ <b>Настройки</b>\n\n📍 Город: <b>{city}</b>\n🕒 Расписание: <b>{schedule}</b>",
+        "btn_change_city": "🌍 Изменить город",
+        "btn_change_time": "⏰ Изменить время",
+        "btn_stop": "🛑 Отключить рассылку",
+        "stop_success": "✅ Подписка отключена. Больше не беспокою.",
+        "no_sub": "❌ У вас нет активной подписки. Нажмите /setup."
     },
     "uk": {
-        "start": "👋 Привіт! Я @WeaYouBot.\nЯ надсилатиму сюди погоду за розкладом.\n\nТисни /setup для налаштування.",
+        "start": "👋 Привіт! Я @WeaYouBot.\nЯ надсилатиму сюди погоду за розкладом.\n\nТисни /setup для налаштування або /settings для змін.",
         "setup_start": "🌍 Введіть **назву міста** для пошуку:",
         "city_not_found": "❌ Місто не знайдено. Спробуйте ще раз:",
         "choose_city": "✅ Знайдено декілька місць. Оберіть потрібне:",
@@ -38,7 +52,14 @@ TEXTS = {
         "done_interval": "✅ Готово! Погода для **{city}** кожні {val} год.",
         "done_daily": "✅ Готово! Погода для **{city}** щодня о {val}:00.",
         "only_admin": "⚠️ Тільки адміністратори можуть налаштовувати бота.",
-        "weather_msg": "🌡 <b>Погода у {city} ({country})</b>\n\n{desc}\nТемп: {temp}°C (Відчувається: {feels}°C)\nВітер: {wind} м/с\nВологість: {hum}%"
+        "weather_msg": "🌡 <b>Погода у {city} ({country})</b>\n\n{desc}\nТемп: {temp}°C (Відчувається: {feels}°C)\nВітер: {wind} м/с\nВологість: {hum}%",
+        # Новые тексты
+        "settings_title": "⚙️ <b>Налаштування</b>\n\n📍 Місто: <b>{city}</b>\n🕒 Розклад: <b>{schedule}</b>",
+        "btn_change_city": "🌍 Змінити місто",
+        "btn_change_time": "⏰ Змінити час",
+        "btn_stop": "🛑 Відписатися",
+        "stop_success": "✅ Підписку скасовано. Більше не турбую.",
+        "no_sub": "❌ У вас немає активної підписки. Натисніть /setup."
     }
 }
 
@@ -60,7 +81,6 @@ def get_text(lang, key, **kwargs):
 
 def get_wmo(code, lang):
     l = lang if lang in TEXTS else "en"
-    # Упрощенная логика для кодов, берем ближайший ключ
     code_map = code
     if code > 95: code_map = 95
     elif code >= 80: code_map = 61
@@ -69,5 +89,4 @@ def get_wmo(code, lang):
     elif code >= 45: code_map = 45
     elif code >= 3: code_map = 3
     elif code >= 1: code_map = 1
-    
     return WEATHER_CODES.get(code_map, WEATHER_CODES[0])[l]

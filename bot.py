@@ -59,7 +59,16 @@ def save_subscription(data):
     conn.commit()
     conn.close()
 
-def get_subscriptions():
+def get_subscription(chat_id):
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM subscriptions WHERE chat_id = ?", (chat_id,))
+    row = cur.fetchone()
+    conn.close()
+    return row
+
+def get_all_subscriptions():
     conn = sqlite3.connect(DB_FILE)
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
@@ -67,6 +76,13 @@ def get_subscriptions():
     rows = cur.fetchall()
     conn.close()
     return rows
+
+def delete_subscription(chat_id):
+    conn = sqlite3.connect(DB_FILE)
+    cur = conn.cursor()
+    cur.execute("DELETE FROM subscriptions WHERE chat_id = ?", (chat_id,))
+    conn.commit()
+    conn.close()
 
 def update_last_run(chat_id):
     conn = sqlite3.connect(DB_FILE)
@@ -77,11 +93,8 @@ def update_last_run(chat_id):
 
 # --- API ---
 async def search_cities(city_name, lang_code):
-    # ИСПРАВЛЕНИЕ: Передаем язык пользователя в API (ru/uk/en)
-    # Это позволяет находить локальные названия (Каменское, Київ и т.д.)
     if lang_code not in ['ru', 'uk', 'en', 'de', 'fr', 'pl']: 
         lang_code = 'en'
-        
     url = f"https://geocoding-api.open-meteo.com/v1/search?name={city_name}&count=10&language={lang_code}&format=json"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as resp:
@@ -114,6 +127,10 @@ def get_user_lang(user: types.User):
     lang = user.language_code.split('-')[0]
     return lang if lang in TEXTS else 'en'
 
+def check_admin(message: types.Message):
+    # Хелпер для проверки прав
+    pass # Реализовано внутри хендлеров
+
 # --- ХЕНДЛЕРЫ ---
 
 @router.message(Command("start"))
@@ -123,10 +140,10 @@ async def cmd_start(message: types.Message):
 
 @router.message(Command("setup"))
 async def cmd_setup(message: types.Message, state: FSMContext):
+    # Проверка админа
     if message.chat.type in ['group', 'supergroup', 'channel']:
-        user_id = message.from_user.id
         admins = await message.bot.get_chat_administrators(message.chat.id)
-        if user_id not in [a.user.id for a in admins]:
+        if message.from_user.id not in [a.user.id for a in admins]:
             await message.answer(get_text('en', "only_admin"))
             return
     
@@ -136,12 +153,95 @@ async def cmd_setup(message: types.Message, state: FSMContext):
     await state.set_state(SetupState.waiting_city_input)
     await message.answer(get_text(lang, "setup_start"))
 
+# --- МЕНЮ НАСТРОЕК (/settings) ---
+@router.message(Command("settings"))
+async def cmd_settings(message: types.Message, state: FSMContext):
+    # Проверка админа
+    if message.chat.type in ['group', 'supergroup', 'channel']:
+        admins = await message.bot.get_chat_administrators(message.chat.id)
+        if message.from_user.id not in [a.user.id for a in admins]:
+            await message.answer(get_text('en', "only_admin"))
+            return
+
+    sub = get_subscription(message.chat.id)
+    lang = get_user_lang(message.from_user)
+
+    if not sub:
+        await message.answer(get_text(lang, "no_sub"))
+        return
+
+    # Формируем описание текущего режима
+    if sub['interval_hours'] == 24:
+        sched = f"Daily at {sub['target_hour']}:00"
+    else:
+        sched = f"Every {sub['interval_hours']} hours"
+
+    text = get_text(lang, "settings_title", city=sub['city_name'], schedule=sched)
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=get_text(lang, "btn_change_city"), callback_data="set_city")],
+        [InlineKeyboardButton(text=get_text(lang, "btn_change_time"), callback_data="set_time")],
+        [InlineKeyboardButton(text=get_text(lang, "btn_stop"), callback_data="set_stop")]
+    ])
+    
+    await message.answer(text, reply_markup=kb, parse_mode="HTML")
+
+# Обработка кнопок меню
+@router.callback_query(F.data == "set_stop")
+async def settings_stop(callback: CallbackQuery):
+    lang = get_user_lang(callback.from_user)
+    delete_subscription(callback.message.chat.id)
+    await callback.message.edit_text(get_text(lang, "stop_success"))
+
+@router.callback_query(F.data == "set_city")
+async def settings_city(callback: CallbackQuery, state: FSMContext):
+    lang = get_user_lang(callback.from_user)
+    # Запускаем флоу настройки заново
+    await state.update_data(lang=lang, chat_id=callback.message.chat.id, chat_type=callback.message.chat.type)
+    await state.set_state(SetupState.waiting_city_input)
+    await callback.message.edit_text(get_text(lang, "setup_start"))
+
+@router.callback_query(F.data == "set_time")
+async def settings_time(callback: CallbackQuery, state: FSMContext):
+    # Загружаем текущие данные из БД в стейт, чтобы не потерять город
+    sub = get_subscription(callback.message.chat.id)
+    lang = get_user_lang(callback.from_user)
+    
+    if not sub:
+        await callback.message.answer(get_text(lang, "no_sub"))
+        return
+
+    # Записываем старые данные о городе в память
+    await state.update_data(
+        lang=lang, 
+        chat_id=sub['chat_id'], 
+        chat_type=sub['chat_type'],
+        city=sub['city_name'],
+        country=sub['country_code'],
+        lat=sub['lat'],
+        lon=sub['lon']
+    )
+
+    # Показываем выбор времени сразу
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="2 h", callback_data="int_2"), InlineKeyboardButton(text="12 h", callback_data="int_12")],
+        [InlineKeyboardButton(text="24 h (Daily)", callback_data="int_24")]
+    ])
+    
+    await callback.message.edit_text(
+        get_text(lang, "choose_interval", city=sub['city_name'], country=get_flag(sub['country_code'])),
+        reply_markup=kb
+    )
+    await state.set_state(SetupState.waiting_interval)
+
+
+# --- ЛОГИКА НАСТРОЙКИ (SETUP) ---
+
 @router.message(SetupState.waiting_city_input)
 async def process_city_search(message: types.Message, state: FSMContext):
     data = await state.get_data()
     lang = data['lang']
     
-    # Передаем язык в поиск
     cities = await search_cities(message.text, lang)
     
     if not cities:
@@ -149,18 +249,13 @@ async def process_city_search(message: types.Message, state: FSMContext):
         return
 
     kb_builder = []
-    # Лимит кнопок, чтобы не перегружать интерфейс (макс 5)
     for city in cities[:5]:
         flag = get_flag(city.get("country_code", "XX"))
         country = city.get("country", "")
         name = city.get("name", "")
         region = city.get("admin1", "")
-        
-        # Формируем красивую строку: 🇺🇦 Каменское, Украина (Днепропетровская обл.)
         btn_text = f"{flag} {name}, {country}"
-        if region:
-            btn_text += f" ({region})"
-            
+        if region: btn_text += f" ({region})"
         kb_builder.append([InlineKeyboardButton(text=btn_text, callback_data=f"city_{cities.index(city)}")])
     
     await state.update_data(cities_cache=cities)
@@ -186,7 +281,6 @@ async def process_city_selection(callback: CallbackQuery, state: FSMContext):
         [InlineKeyboardButton(text="24 h (Daily)", callback_data="int_24")]
     ])
     
-    # Редактируем сообщение, убирая кнопки городов
     await callback.message.edit_text(
         get_text(lang, "choose_interval", city=selected_city['name'], country=selected_city.get('country', '')),
         reply_markup=kb
@@ -226,7 +320,7 @@ async def process_time_input(message: types.Message, state: FSMContext):
 
 # --- ПЛАНИРОВЩИК ---
 async def sender_job(bot: Bot):
-    subs = get_subscriptions()
+    subs = get_all_subscriptions()
     now = datetime.now()
     
     for sub in subs:
@@ -244,7 +338,6 @@ async def sender_job(bot: Bot):
             try:
                 w = await get_weather(sub['lat'], sub['lon'])
                 lang = sub['lang_code']
-                
                 msg = get_text(
                     lang, "weather_msg",
                     city=sub['city_name'],
@@ -255,7 +348,6 @@ async def sender_job(bot: Bot):
                     wind=w['wind_speed_10m'],
                     hum=w['relative_humidity_2m']
                 )
-                
                 await bot.send_message(sub['chat_id'], msg, parse_mode="HTML")
                 update_last_run(sub['chat_id'])
             except Exception as e:
