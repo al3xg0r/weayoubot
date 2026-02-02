@@ -11,13 +11,16 @@ from aiogram import Bot, Dispatcher, Router, F, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+# Импорт локализации
+from locales import get_text, get_wmo, TEXTS
 
 # --- КОНФИГУРАЦИЯ ---
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
-DB_FILE = "weather_bot.db"
+DB_FILE = "weather_bot_v2.db" # Новое имя базы
 
 # --- БАЗА ДАННЫХ ---
 def init_db():
@@ -27,7 +30,9 @@ def init_db():
     CREATE TABLE IF NOT EXISTS subscriptions (
         chat_id INTEGER PRIMARY KEY,
         chat_type TEXT,
+        lang_code TEXT,
         city_name TEXT,
+        country_code TEXT,
         lat REAL,
         lon REAL,
         interval_hours INTEGER,
@@ -38,14 +43,19 @@ def init_db():
     conn.commit()
     conn.close()
 
-def save_subscription(chat_id, chat_type, city, lat, lon, interval, target_hour=None):
+def save_subscription(data):
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
-    # Если подписка уже есть — обновляем
     cur.execute("""
-        INSERT OR REPLACE INTO subscriptions (chat_id, chat_type, city_name, lat, lon, interval_hours, target_hour, last_run)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (chat_id, chat_type, city, lat, lon, interval, target_hour, datetime.now() - timedelta(days=1)))
+        INSERT OR REPLACE INTO subscriptions 
+        (chat_id, chat_type, lang_code, city_name, country_code, lat, lon, interval_hours, target_hour, last_run)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        data['chat_id'], data['chat_type'], data['lang'], 
+        data['city'], data['country'], data['lat'], data['lon'], 
+        data['interval'], data.get('target_hour'), 
+        datetime.now() - timedelta(days=1)
+    ))
     conn.commit()
     conn.close()
 
@@ -65,15 +75,15 @@ def update_last_run(chat_id):
     conn.commit()
     conn.close()
 
-# --- ВНЕШНИЕ API ---
-async def get_coordinates(city_name):
-    url = f"https://geocoding-api.open-meteo.com/v1/search?name={city_name}&count=1&language=ru&format=json"
+# --- API ---
+async def search_cities(city_name):
+    # Ищем города и возвращаем список (название, страна, координаты)
+    url = f"https://geocoding-api.open-meteo.com/v1/search?name={city_name}&count=5&language=en&format=json"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as resp:
             data = await resp.json()
-            if "results" in data:
-                return data["results"][0]["latitude"], data["results"][0]["longitude"], data["results"][0]["name"]
-            return None, None, None
+            if "results" not in data: return []
+            return data["results"] # List of dicts
 
 async def get_weather(lat, lon):
     url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&wind_speed_unit=ms&timezone=auto"
@@ -82,98 +92,135 @@ async def get_weather(lat, lon):
             data = await resp.json()
             return data["current"]
 
-def decode_wmo(code):
-    # Упрощенная расшифровка кодов погоды WMO
-    if code == 0: return "☀️ Чистое небо"
-    if 1 <= code <= 3: return "🌤 Переменная облачность"
-    if 45 <= code <= 48: return "🌫 Туман"
-    if 51 <= code <= 67: return "🌧 Дождь"
-    if 71 <= code <= 77: return "❄️ Снег"
-    if 80 <= code <= 82: return "🌦 Ливень"
-    if 95 <= code <= 99: return "⛈ Гроза"
-    return "unknown"
+# --- СТЕЙТЫ ---
+class SetupState(StatesGroup):
+    waiting_city_input = State()
+    waiting_city_selection = State() # Выбор из кнопок
+    waiting_interval = State()
+    waiting_time = State()
 
-# --- ЛОГИКА БОТА ---
 router = Router()
 
-class SetupState(StatesGroup):
-    waiting_city = State()
-    waiting_interval = State()
-    waiting_time = State() # Только для интервала 24ч
+# --- ПОЛЕЗНЫЕ ФУНКЦИИ ---
+def get_flag(country_code):
+    # Превращает "US" в флаг 🇺🇸
+    return chr(127397 + ord(country_code[0])) + chr(127397 + ord(country_code[1]))
+
+def get_user_lang(user: types.User):
+    if not user or not user.language_code: return 'en'
+    lang = user.language_code.split('-')[0]
+    return lang if lang in TEXTS else 'en'
+
+# --- ХЕНДЛЕРЫ ---
 
 @router.message(Command("start"))
 async def cmd_start(message: types.Message):
-    await message.answer(
-        "👋 Привет! Я @WeaYouBot.\n"
-        "Я буду присылать погоду в этот чат по расписанию.\n\n"
-        "Нажмите /setup чтобы настроить рассылку."
-    )
+    lang = get_user_lang(message.from_user)
+    await message.answer(get_text(lang, "start"))
 
 @router.message(Command("setup"))
 async def cmd_setup(message: types.Message, state: FSMContext):
-    # Проверка прав админа в группах
-    if message.chat.type in ['group', 'supergroup']:
+    # Проверка админа
+    if message.chat.type in ['group', 'supergroup', 'channel']:
+        user_id = message.from_user.id
         admins = await message.bot.get_chat_administrators(message.chat.id)
-        if message.from_user.id not in [a.user.id for a in admins]:
-            await message.answer("Только администраторы могут настраивать бота.")
+        if user_id not in [a.user.id for a in admins]:
+            await message.answer(get_text('en', "only_admin")) # Default to EN for safety
             return
-
-    await state.set_state(SetupState.waiting_city)
-    await message.answer("🌍 Введите название города (например: Москва):")
-
-@router.message(SetupState.waiting_city)
-async def process_city(message: types.Message, state: FSMContext):
-    lat, lon, city_real = await get_coordinates(message.text)
-    if not lat:
-        await message.answer("❌ Город не найден. Попробуйте еще раз:")
-        return
-
-    await state.update_data(city=city_real, lat=lat, lon=lon)
     
-    kb = ReplyKeyboardMarkup(keyboard=[
-        [KeyboardButton(text="2 часа"), KeyboardButton(text="12 часов")],
-        [KeyboardButton(text="24 часа")]
-    ], resize_keyboard=True, one_time_keyboard=True)
+    # Определяем язык и сохраняем в FSM
+    lang = get_user_lang(message.from_user)
+    await state.update_data(lang=lang, chat_id=message.chat.id, chat_type=message.chat.type)
     
-    await state.set_state(SetupState.waiting_interval)
-    await message.answer(f"✅ Город найден: {city_real}.\nКак часто присылать погоду?", reply_markup=kb)
+    await state.set_state(SetupState.waiting_city_input)
+    await message.answer(get_text(lang, "setup_start"))
 
-@router.message(SetupState.waiting_interval)
-async def process_interval(message: types.Message, state: FSMContext):
-    text = message.text.lower()
-    
-    if "2 часа" in text:
-        interval = 2
-    elif "12 часов" in text:
-        interval = 12
-    elif "24 часа" in text:
-        interval = 24
-        await state.update_data(interval=interval)
-        await state.set_state(SetupState.waiting_time)
-        await message.answer("⏰ Введите час отправки (от 0 до 23, например: 9):", reply_markup=ReplyKeyboardRemove())
-        return
-    else:
-        await message.answer("Используйте кнопки меню.")
-        return
-
+@router.message(SetupState.waiting_city_input)
+async def process_city_search(message: types.Message, state: FSMContext):
     data = await state.get_data()
-    save_subscription(message.chat.id, message.chat.type, data['city'], data['lat'], data['lon'], interval)
-    await state.clear()
-    await message.answer(f"✅ Готово! Буду слать погоду для {data['city']} каждые {interval} ч.", reply_markup=ReplyKeyboardRemove())
+    lang = data['lang']
+    
+    cities = await search_cities(message.text)
+    
+    if not cities:
+        await message.answer(get_text(lang, "city_not_found"))
+        return
+
+    # Строим клавиатуру с выбором страны
+    kb_builder = []
+    for city in cities:
+        flag = get_flag(city.get("country_code", "XX"))
+        country = city.get("country", "")
+        name = city.get("name", "")
+        region = city.get("admin1", "")
+        
+        # Данные в callback: "sel_index"
+        btn_text = f"{flag} {name}, {country} ({region})"
+        # Сохраним список во временное хранилище state, чтобы потом достать по индексу
+        kb_builder.append([InlineKeyboardButton(text=btn_text, callback_data=f"city_{cities.index(city)}")])
+    
+    await state.update_data(cities_cache=cities)
+    await message.answer(get_text(lang, "choose_city"), reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_builder))
+    await state.set_state(SetupState.waiting_city_selection)
+
+@router.callback_query(SetupState.waiting_city_selection, F.data.startswith("city_"))
+async def process_city_selection(callback: CallbackQuery, state: FSMContext):
+    idx = int(callback.data.split("_")[1])
+    data = await state.get_data()
+    selected_city = data['cities_cache'][idx]
+    
+    # Сохраняем выбранные координаты
+    await state.update_data(
+        city=selected_city['name'],
+        country=selected_city.get('country_code', 'XX'),
+        lat=selected_city['latitude'],
+        lon=selected_city['longitude']
+    )
+    
+    # Клавиатура интервалов
+    lang = data['lang']
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="2 h", callback_data="int_2"), InlineKeyboardButton(text="12 h", callback_data="int_12")],
+        [InlineKeyboardButton(text="24 h (Daily)", callback_data="int_24")]
+    ])
+    
+    await callback.message.edit_text(
+        get_text(lang, "choose_interval", city=selected_city['name'], country=selected_city.get('country', '')),
+        reply_markup=kb
+    )
+    await state.set_state(SetupState.waiting_interval)
+
+@router.callback_query(SetupState.waiting_interval, F.data.startswith("int_"))
+async def process_interval_choice(callback: CallbackQuery, state: FSMContext):
+    interval = int(callback.data.split("_")[1])
+    await state.update_data(interval=interval)
+    data = await state.get_data()
+    lang = data['lang']
+
+    if interval == 24:
+        await callback.message.edit_text(get_text(lang, "ask_time"))
+        await state.set_state(SetupState.waiting_time)
+    else:
+        # Сохраняем сразу
+        save_subscription(data)
+        await callback.message.edit_text(get_text(lang, "done_interval", city=data['city'], val=interval))
+        await state.clear()
 
 @router.message(SetupState.waiting_time)
-async def process_time(message: types.Message, state: FSMContext):
+async def process_time_input(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    lang = data['lang']
     try:
         hour = int(message.text)
         if not (0 <= hour <= 23): raise ValueError
     except ValueError:
-        await message.answer("❌ Введите число от 0 до 23.")
+        await message.answer(get_text(lang, "invalid_time"))
         return
 
-    data = await state.get_data()
-    save_subscription(message.chat.id, message.chat.type, data['city'], data['lat'], data['lon'], 24, target_hour=hour)
+    data['target_hour'] = hour
+    save_subscription(data)
+    await message.answer(get_text(lang, "done_daily", city=data['city'], val=hour))
     await state.clear()
-    await message.answer(f"✅ Готово! Погода для {data['city']} каждый день в {hour}:00.", reply_markup=ReplyKeyboardRemove())
 
 # --- ПЛАНИРОВЩИК ---
 async def sender_job(bot: Bot):
@@ -181,37 +228,37 @@ async def sender_job(bot: Bot):
     now = datetime.now()
     
     for sub in subs:
-        chat_id = sub['chat_id']
-        city = sub['city_name']
-        interval = sub['interval_hours']
-        target_hour = sub['target_hour']
-        last_run = datetime.fromisoformat(sub['last_run']) if isinstance(sub['last_run'], str) else sub['last_run']
-
+        # sub is a Row object
         should_send = False
+        last_run = datetime.fromisoformat(sub['last_run']) if isinstance(sub['last_run'], str) else sub['last_run']
         
-        # Логика 24 часов (по конкретному времени)
-        if interval == 24:
-            if now.hour == target_hour and (now - last_run).total_seconds() > 3600 * 20:
+        if sub['interval_hours'] == 24:
+            if now.hour == sub['target_hour'] and (now - last_run).total_seconds() > 3600 * 20:
                 should_send = True
-        # Логика интервалов (2 или 12 часов)
         else:
-            if (now - last_run).total_seconds() >= interval * 3600:
+            if (now - last_run).total_seconds() >= sub['interval_hours'] * 3600:
                 should_send = True
 
         if should_send:
             try:
-                weather = await get_weather(sub['lat'], sub['lon'])
-                msg = (
-                    f"🌡 <b>Погода в {city}</b>\n"
-                    f"{decode_wmo(weather['weather_code'])}\n"
-                    f"Температура: {weather['temperature_2m']}°C (Ощущается: {weather['apparent_temperature']}°C)\n"
-                    f"Ветер: {weather['wind_speed_10m']} м/с\n"
-                    f"Влажность: {weather['relative_humidity_2m']}%"
+                w = await get_weather(sub['lat'], sub['lon'])
+                lang = sub['lang_code']
+                
+                msg = get_text(
+                    lang, "weather_msg",
+                    city=sub['city_name'],
+                    country=get_flag(sub['country_code']),
+                    desc=get_wmo(w['weather_code'], lang),
+                    temp=w['temperature_2m'],
+                    feels=w['apparent_temperature'],
+                    wind=w['wind_speed_10m'],
+                    hum=w['relative_humidity_2m']
                 )
-                await bot.send_message(chat_id, msg, parse_mode="HTML")
-                update_last_run(chat_id)
+                
+                await bot.send_message(sub['chat_id'], msg, parse_mode="HTML")
+                update_last_run(sub['chat_id'])
             except Exception as e:
-                logging.error(f"Error sending to {chat_id}: {e}")
+                logging.error(f"Error sending to {sub['chat_id']}: {e}")
 
 async def main():
     init_db()
@@ -219,9 +266,7 @@ async def main():
     dp = Dispatcher()
     dp.include_router(router)
 
-    # Запуск планировщика
     scheduler = AsyncIOScheduler()
-    # Проверяем базу каждую минуту
     scheduler.add_job(sender_job, "interval", minutes=1, kwargs={"bot": bot}) 
     scheduler.start()
 
@@ -230,9 +275,6 @@ async def main():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    try:
-        if sys.platform == 'win32':
-            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("Bot stopped")
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    asyncio.run(main())
