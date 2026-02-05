@@ -37,7 +37,7 @@ The bot is perfect for group chats (family, work) or channels.
 
 ### 1. Clone
 ```bash
-git clone [https://github.com/YOUR_USERNAME/weayoubot.git](https://github.com/YOUR_USERNAME/weayoubot.git)
+git clone https://github.com/al3xg0r/weayoubot.git
 cd weayoubot
 ```
 
