@@ -6,7 +6,6 @@ TEXTS = {
         "setup_start": "🌍 Enter the **City Name** to search:",
         "city_not_found": "❌ City not found. Try again:",
         "choose_city": "✅ Found multiple locations. Please choose one:",
-        # Новый шаг
         "choose_type": "📊 **What kind of report do you want?**\n\n🔹 **Current**: What's happening right now.\n🔸 **Daily**: Full forecast for today (Max/Min, Rain).",
         "btn_current": "🔹 Current Weather",
         "btn_daily": "🔸 Daily Forecast",
@@ -18,9 +17,9 @@ TEXTS = {
         "done_daily": "✅ Done! Weather for **{city}** daily at {val}:00.",
         "only_admin": "⚠️ Only admins can configure this bot.",
         
-        # Шаблоны сообщений
         "weather_msg": "🌡 <b>Current in {city} ({country})</b>\n\n{desc}\nTemp: {temp}°C (Feels: {feels}°C)\nWind: {wind} m/s\nHumidity: {hum}%",
-        "daily_msg": "📅 <b>Forecast for {city} ({country})</b>\n\n{desc}\n🌡 Max: {t_max}°C | Min: {t_min}°C\n☔️ Rain: {rain} mm\n💨 Wind Max: {wind} m/s\n🌅 Rise: {sunrise} | 🌇 Set: {sunset}",
+        # Обновленный шаблон с t_now
+        "daily_msg": "📅 <b>Forecast for {city} ({country})</b>\n\n{desc}\n🌡 Now: <b>{t_now}°C</b>\n📈 Max: {t_max}°C | Min: {t_min}°C\n☔️ Rain: {rain} mm\n💨 Wind Max: {wind} m/s\n🌅 Rise: {sunrise} | 🌇 Set: {sunset}",
 
         "settings_title": "⚙️ <b>Settings</b>\n\n📍 City: <b>{city}</b>\n📊 Type: <b>{type}</b>\n🕒 Schedule: <b>{schedule}</b>",
         "btn_change_city": "🌍 Change City",
@@ -35,7 +34,6 @@ TEXTS = {
         "setup_start": "🌍 Введите **название города** для поиска:",
         "city_not_found": "❌ Город не найден. Попробуйте еще раз:",
         "choose_city": "✅ Найдено несколько мест. Выберите нужное:",
-        # Новый шаг
         "choose_type": "📊 **Какой прогноз присылать?**\n\n🔹 **Текущий**: Погода прямо сейчас.\n🔸 **На день**: Прогноз на сегодня (Макс/Мин, Осадки).",
         "btn_current": "🔹 Текущая погода",
         "btn_daily": "🔸 Прогноз на день",
@@ -48,7 +46,8 @@ TEXTS = {
         "only_admin": "⚠️ Только администраторы могут настраивать бота.",
         
         "weather_msg": "🌡 <b>Сейчас в {city} ({country})</b>\n\n{desc}\nТемп: {temp}°C (Ощущается: {feels}°C)\nВетер: {wind} м/с\nВлажность: {hum}%",
-        "daily_msg": "📅 <b>Прогноз для {city} ({country})</b>\n\n{desc}\n🌡 Макс: {t_max}°C | Мин: {t_min}°C\n☔️ Осадки: {rain} мм\n💨 Ветер (макс): {wind} м/с\n🌅 Восход: {sunrise} | 🌇 Закат: {sunset}",
+        # Обновленный шаблон с t_now
+        "daily_msg": "📅 <b>Прогноз для {city} ({country})</b>\n\n{desc}\n🌡 Сейчас: <b>{t_now}°C</b>\n📈 Макс: {t_max}°C | Мин: {t_min}°C\n☔️ Осадки: {rain} мм\n💨 Ветер (макс): {wind} м/с\n🌅 Восход: {sunrise} | 🌇 Закат: {sunset}",
 
         "settings_title": "⚙️ <b>Настройки</b>\n\n📍 Город: <b>{city}</b>\n📊 Тип: <b>{type}</b>\n🕒 Расписание: <b>{schedule}</b>",
         "btn_change_city": "🌍 Изменить город",
@@ -63,7 +62,6 @@ TEXTS = {
         "setup_start": "🌍 Введіть **назву міста** для пошуку:",
         "city_not_found": "❌ Місто не знайдено. Спробуйте ще раз:",
         "choose_city": "✅ Знайдено декілька місць. Оберіть потрібне:",
-        # Новый шаг
         "choose_type": "📊 **Який прогноз надсилати?**\n\n🔹 **Поточний**: Погода прямо зараз.\n🔸 **На день**: Прогноз на сьогодні (Макс/Мін, Опади).",
         "btn_current": "🔹 Поточна погода",
         "btn_daily": "🔸 Прогноз на день",
@@ -76,7 +74,8 @@ TEXTS = {
         "only_admin": "⚠️ Тільки адміністратори можуть налаштовувати бота.",
         
         "weather_msg": "🌡 <b>Зараз у {city} ({country})</b>\n\n{desc}\nТемп: {temp}°C (Відчувається: {feels}°C)\nВітер: {wind} м/с\nВологість: {hum}%",
-        "daily_msg": "📅 <b>Прогноз для {city} ({country})</b>\n\n{desc}\n🌡 Макс: {t_max}°C | Мін: {t_min}°C\n☔️ Опади: {rain} мм\n💨 Вітер (макс): {wind} м/с\n🌅 Схід: {sunrise} | 🌇 Захід: {sunset}",
+        # Обновленный шаблон с t_now
+        "daily_msg": "📅 <b>Прогноз для {city} ({country})</b>\n\n{desc}\n🌡 Зараз: <b>{t_now}°C</b>\n📈 Макс: {t_max}°C | Мін: {t_min}°C\n☔️ Опади: {rain} мм\n💨 Вітер (макс): {wind} м/с\n🌅 Схід: {sunrise} | 🌇 Захід: {sunset}",
 
         "settings_title": "⚙️ <b>Налаштування</b>\n\n📍 Місто: <b>{city}</b>\n📊 Тип: <b>{type}</b>\n🕒 Розклад: <b>{schedule}</b>",
         "btn_change_city": "🌍 Змінити місто",
