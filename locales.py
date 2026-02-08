@@ -18,8 +18,9 @@ TEXTS = {
         "only_admin": "⚠️ Only admins can configure this bot.",
         
         "weather_msg": "🌡 <b>Current in {city} ({country})</b>\n\n{desc}\nTemp: {temp}°C (Feels: {feels}°C)\nWind: {wind} m/s\nHumidity: {hum}%",
-        # Обновленный шаблон с t_now
-        "daily_msg": "📅 <b>Forecast for {city} ({country})</b>\n\n{desc}\n🌡 Now: <b>{t_now}°C</b>\n📈 Max: {t_max}°C | Min: {t_min}°C\n☔️ Rain: {rain} mm\n💨 Wind Max: {wind} m/s\n🌅 Rise: {sunrise} | 🌇 Set: {sunset}",
+        
+        # Обновленный шаблон (EN)
+        "daily_msg": "📅 <b>{city} ({country})</b>\n\n🌡 Now: <b>{t_now}°C</b>\n\nToday:\n{desc} (Rain: {rain} mm)\n🌡 Temp: <b>{t_max}°C</b> - <b>{t_min}°C</b>\n💨 Wind (max): {wind} m/s\n🌅 Rise: {sunrise} | 🌇 Set: {sunset}",
 
         "settings_title": "⚙️ <b>Settings</b>\n\n📍 City: <b>{city}</b>\n📊 Type: <b>{type}</b>\n🕒 Schedule: <b>{schedule}</b>",
         "btn_change_city": "🌍 Change City",
@@ -46,8 +47,9 @@ TEXTS = {
         "only_admin": "⚠️ Только администраторы могут настраивать бота.",
         
         "weather_msg": "🌡 <b>Сейчас в {city} ({country})</b>\n\n{desc}\nТемп: {temp}°C (Ощущается: {feels}°C)\nВетер: {wind} м/с\nВлажность: {hum}%",
-        # Обновленный шаблон с t_now
-        "daily_msg": "📅 <b>Прогноз для {city} ({country})</b>\n\n{desc}\n🌡 Сейчас: <b>{t_now}°C</b>\n📈 Макс: {t_max}°C | Мин: {t_min}°C\n☔️ Осадки: {rain} мм\n💨 Ветер (макс): {wind} м/с\n🌅 Восход: {sunrise} | 🌇 Закат: {sunset}",
+        
+        # Обновленный шаблон (RU)
+        "daily_msg": "📅 <b>{city} ({country})</b>\n\n🌡 Сейчас: <b>{t_now}°C</b>\n\nСегодня:\n{desc} (Осадки: {rain} мм)\n🌡 Температура <b>{t_max}°C</b> - <b>{t_min}°C</b>\n💨 Ветер (макс): {wind} м/с\n🌅 Восход: {sunrise} | 🌇 Закат: {sunset}",
 
         "settings_title": "⚙️ <b>Настройки</b>\n\n📍 Город: <b>{city}</b>\n📊 Тип: <b>{type}</b>\n🕒 Расписание: <b>{schedule}</b>",
         "btn_change_city": "🌍 Изменить город",
@@ -74,8 +76,9 @@ TEXTS = {
         "only_admin": "⚠️ Тільки адміністратори можуть налаштовувати бота.",
         
         "weather_msg": "🌡 <b>Зараз у {city} ({country})</b>\n\n{desc}\nТемп: {temp}°C (Відчувається: {feels}°C)\nВітер: {wind} м/с\nВологість: {hum}%",
-        # Обновленный шаблон с t_now
-        "daily_msg": "📅 <b>Прогноз для {city} ({country})</b>\n\n{desc}\n🌡 Зараз: <b>{t_now}°C</b>\n📈 Макс: {t_max}°C | Мін: {t_min}°C\n☔️ Опади: {rain} мм\n💨 Вітер (макс): {wind} м/с\n🌅 Схід: {sunrise} | 🌇 Захід: {sunset}",
+        
+        # Обновленный шаблон (UK)
+        "daily_msg": "📅 <b>{city} ({country})</b>\n\n🌡 Зараз: <b>{t_now}°C</b>\n\nСьогодні:\n{desc} (Опади: {rain} мм)\n🌡 Температура <b>{t_max}°C</b> - <b>{t_min}°C</b>\n💨 Вітер (макс): {wind} м/с\n🌅 Схід: {sunrise} | 🌇 Захід: {sunset}",
 
         "settings_title": "⚙️ <b>Налаштування</b>\n\n📍 Місто: <b>{city}</b>\n📊 Тип: <b>{type}</b>\n🕒 Розклад: <b>{schedule}</b>",
         "btn_change_city": "🌍 Змінити місто",
