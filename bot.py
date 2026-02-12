@@ -8,7 +8,8 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher, Router, F, types
-from aiogram.filters import Command
+# ДОБАВЛЕН StateFilter в импорты
+from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
@@ -125,7 +126,6 @@ class SetupState(StatesGroup):
     waiting_interval = State()
     waiting_time = State()
 
-# НОВЫЙ СТЕЙТ ДЛЯ РАЗОВОГО ЗАПРОСА
 class OneTimeState(StatesGroup):
     waiting_city_selection = State()
     waiting_forecast_type = State()
@@ -167,25 +167,18 @@ async def cmd_setup(message: types.Message, state: FSMContext):
     await state.set_state(SetupState.waiting_city_input)
     await message.answer(get_text(lang, "setup_start"))
 
-# --- НОВЫЙ ХЕНДЛЕР: ОБРАБОТКА ТЕКСТА (РАЗОВЫЙ ЗАПРОС) ---
-@router.message(F.text & ~F.text.startswith("/"))
+# --- ИСПРАВЛЕННЫЙ ХЕНДЛЕР (ДОБАВЛЕН StateFilter(None)) ---
+# Реагирует на текст ТОЛЬКО если у пользователя НЕТ активного состояния (Setup)
+@router.message(F.text & ~F.text.startswith("/"), StateFilter(None))
 async def process_text_search(message: types.Message, state: FSMContext):
-    # Если мы уже в каком-то состоянии (настройка), игнорируем или обрабатываем там
-    current_state = await state.get_state()
-    if current_state:
-        return 
-
     lang = get_user_lang(message.from_user)
     cities = await search_cities(message.text, lang)
     
     if not cities:
-        # Для разового запроса можно не отвечать "не найдено", чтобы не спамить в чатах,
-        # но в ЛС лучше ответить.
         if message.chat.type == 'private':
             await message.answer(get_text(lang, "city_not_found"))
         return
 
-    # Сохраняем данные для разового запроса
     await state.update_data(lang=lang, cities_cache=cities)
     
     kb_builder = []
@@ -196,7 +189,6 @@ async def process_text_search(message: types.Message, state: FSMContext):
         region = city.get("admin1", "")
         btn_text = f"{flag} {name}, {country}"
         if region: btn_text += f" ({region})"
-        # Используем префикс ot_city_ (OneTime), чтобы не путать с подпиской
         kb_builder.append([InlineKeyboardButton(text=btn_text, callback_data=f"ot_city_{cities.index(city)}")])
     
     await message.answer(get_text(lang, "choose_city"), reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_builder))
@@ -206,7 +198,7 @@ async def process_text_search(message: types.Message, state: FSMContext):
 
 @router.callback_query(OneTimeState.waiting_city_selection, F.data.startswith("ot_city_"))
 async def process_onetime_city(callback: CallbackQuery, state: FSMContext):
-    idx = int(callback.data.split("_")[2]) # ot_city_0 -> 0
+    idx = int(callback.data.split("_")[2])
     data = await state.get_data()
     selected_city = data['cities_cache'][idx]
     
@@ -218,7 +210,6 @@ async def process_onetime_city(callback: CallbackQuery, state: FSMContext):
     )
     
     lang = data['lang']
-    # Спрашиваем тип прогноза (как в настройках)
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=get_text(lang, "btn_current"), callback_data="ot_type_current")],
         [InlineKeyboardButton(text=get_text(lang, "btn_daily"), callback_data="ot_type_daily")]
@@ -229,7 +220,7 @@ async def process_onetime_city(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(OneTimeState.waiting_forecast_type, F.data.startswith("ot_type_"))
 async def process_onetime_result(callback: CallbackQuery, state: FSMContext):
-    ftype = callback.data.split("_")[2] # ot_type_daily -> daily
+    ftype = callback.data.split("_")[2]
     data = await state.get_data()
     lang = data['lang']
     
@@ -270,11 +261,10 @@ async def process_onetime_result(callback: CallbackQuery, state: FSMContext):
         logging.error(f"Error in onetime: {e}")
         await callback.message.edit_text("⚠️ Error fetching weather.")
     
-    # Очищаем стейт, так как запрос выполнен и сохранять ничего не надо
     await state.clear()
 
 
-# --- НАСТРОЙКИ И SETUP (ПРЕЖНИЙ КОД) ---
+# --- НАСТРОЙКИ И SETUP ---
 @router.message(Command("settings"))
 async def cmd_settings(message: types.Message, state: FSMContext):
     if message.chat.type in ['group', 'supergroup', 'channel']:
