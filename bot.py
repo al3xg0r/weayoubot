@@ -8,7 +8,9 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher, Router, F, types
-# ДОБАВЛЕН StateFilter в импорты
+# Добавлен импорт DefaultBotProperties
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ParseMode
 from aiogram.filters import Command, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -151,7 +153,7 @@ async def cmd_start(message: types.Message):
 @router.message(Command("help"))
 async def cmd_help(message: types.Message):
     lang = get_user_lang(message.from_user)
-    await message.answer(get_text(lang, "help_text"), parse_mode="HTML")
+    await message.answer(get_text(lang, "help_text")) # parse_mode global
 
 @router.message(Command("setup"))
 async def cmd_setup(message: types.Message, state: FSMContext):
@@ -167,8 +169,7 @@ async def cmd_setup(message: types.Message, state: FSMContext):
     await state.set_state(SetupState.waiting_city_input)
     await message.answer(get_text(lang, "setup_start"))
 
-# --- ИСПРАВЛЕННЫЙ ХЕНДЛЕР (ДОБАВЛЕН StateFilter(None)) ---
-# Реагирует на текст ТОЛЬКО если у пользователя НЕТ активного состояния (Setup)
+# --- ОБРАБОТКА ТЕКСТА (РАЗОВЫЙ ЗАПРОС) ---
 @router.message(F.text & ~F.text.startswith("/"), StateFilter(None))
 async def process_text_search(message: types.Message, state: FSMContext):
     lang = get_user_lang(message.from_user)
@@ -256,7 +257,7 @@ async def process_onetime_result(callback: CallbackQuery, state: FSMContext):
                 hum=w['relative_humidity_2m']
             )
         
-        await callback.message.edit_text(msg, parse_mode="HTML")
+        await callback.message.edit_text(msg)
     except Exception as e:
         logging.error(f"Error in onetime: {e}")
         await callback.message.edit_text("⚠️ Error fetching weather.")
@@ -296,7 +297,7 @@ async def cmd_settings(message: types.Message, state: FSMContext):
         [InlineKeyboardButton(text=get_text(lang, "btn_stop"), callback_data="set_stop")]
     ])
     
-    await message.answer(text, reply_markup=kb, parse_mode="HTML")
+    await message.answer(text, reply_markup=kb)
 
 @router.callback_query(F.data == "set_stop")
 async def settings_stop(callback: CallbackQuery):
@@ -484,14 +485,15 @@ async def sender_job(bot: Bot):
                         wind=w['wind_speed_10m'],
                         hum=w['relative_humidity_2m']
                     )
-                await bot.send_message(sub['chat_id'], msg, parse_mode="HTML")
+                await bot.send_message(sub['chat_id'], msg)
                 update_last_run(sub['chat_id'])
             except Exception as e:
                 logging.error(f"Error sending to {sub['chat_id']}: {e}")
 
 async def main():
     init_db()
-    bot = Bot(token=TOKEN)
+    # ИЗМЕНЕНИЕ: Включаем глобальный режим HTML
+    bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher()
     dp.include_router(router)
 
