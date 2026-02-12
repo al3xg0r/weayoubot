@@ -107,18 +107,15 @@ async def search_cities(city_name, lang_code):
             return data["results"]
 
 async def get_weather(lat, lon, mode='current'):
-    # ИЗМЕНЕНИЕ: В режиме daily мы теперь запрашиваем и current тоже
     if mode == 'daily':
-        # Просим: Прогноз на день + Текущую температуру
-        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,wind_speed_10m_max&current=temperature_2m&wind_speed_unit=ms&timezone=auto&forecast_days=1"
-        # Возвращаем весь JSON, чтобы достать и 'daily', и 'current'
+        # API Update: added apparent_temperature to current
+        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,wind_speed_10m_max&current=temperature_2m,apparent_temperature&wind_speed_unit=ms&timezone=auto&forecast_days=1"
     else:
         url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&wind_speed_unit=ms&timezone=auto"
         
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as resp:
             data = await resp.json()
-            # Если режим daily, возвращаем весь объект, если current - только ключ current
             return data if mode == 'daily' else data.get('current')
 
 # --- СТЕЙТЫ И УТИЛИТЫ ---
@@ -366,7 +363,6 @@ async def sender_job(bot: Bot):
                 w = await get_weather(sub['lat'], sub['lon'], ftype)
                 
                 if ftype == 'daily':
-                    # Данные в w теперь содержат ключи 'daily' и 'current'
                     daily = w['daily']
                     curr = w['current']
                     
@@ -375,7 +371,8 @@ async def sender_job(bot: Bot):
                         city=sub['city_name'],
                         country=get_flag(sub['country_code']),
                         desc=get_wmo(daily['weather_code'][0], lang),
-                        t_now=curr['temperature_2m'],  # Текущая температура
+                        t_now=curr['temperature_2m'],
+                        t_feels=curr['apparent_temperature'], # Новое поле
                         t_max=daily['temperature_2m_max'][0],
                         t_min=daily['temperature_2m_min'][0],
                         rain=daily['precipitation_sum'][0],
