@@ -2,7 +2,7 @@
 
 TEXTS = {
     "en": {
-        "start": "👋 Hi! I'm @WeaYouBot (Your Weather Bot).\nI will send weather forecasts here.\n\nType /setup to start or /help for instructions.",
+        "start": "👋 Hi! I'm @WeaYouBot (Your Weather Bot).\n\n🔹 **Instant Check:** Just type a **City Name** to get weather now.\n🔹 **Subscription:** Type /setup to get weather on schedule.\n\nType /help for instructions.",
         "setup_start": "🌍 Enter the **City Name** to search:",
         "city_not_found": "❌ City not found. Try again:",
         "choose_city": "✅ Found multiple locations. Please choose one:",
@@ -17,11 +17,9 @@ TEXTS = {
         "done_daily": "✅ Done! Weather for **{city}** daily at {val}:00.",
         "only_admin": "⚠️ Only admins can configure this bot.",
         
-        # --- НОВЫЙ ДИЗАЙН (EN) ---
         "weather_msg": "📍 <b>{city} ({country})</b>\n\n🌡 Now: <b>{temp}°C</b> (Feels like <b>{feels}°C</b>)\n\n<b>Details:</b>\n{desc}\n💨 Wind: <b>{wind} m/s</b>\n💧 Humidity: <b>{hum}%</b>",
         
         "daily_msg": "📍 <b>{city} ({country})</b>\n\n🌡 Now: <b>{t_now}°C</b> (Feels like <b>{t_feels}°C</b>)\n\n<b>Forecast for today:</b>\n{desc} (Rain: {rain} mm)\n🌡 Temperature:\n📈 Max: <b>{t_max}°C</b>\n📉 Min: <b>{t_min}°C</b>\n💨 Wind (max): <b>{wind} m/s</b>\n🌅 Rise: {sunrise} | 🌇 Set: {sunset}",
-        # ---------------------------
 
         "settings_title": "⚙️ <b>Settings</b>\n\n📍 City: <b>{city}</b>\n📊 Type: <b>{type}</b>\n🕒 Schedule: <b>{schedule}</b>",
         "btn_change_city": "🌍 Change City",
@@ -32,7 +30,7 @@ TEXTS = {
         "help_text": "📚 <b>Help & Instructions</b>\n\n<b>Commands:</b>\n/start - Restart\n/setup - Subscribe to weather\n/settings - Manage subscription\n/help - Show this message\n\n<b>👥 How to use in Groups/Channels:</b>\n1. Add bot to the group.\n2. <b>Make it an Admin</b> (required to see messages).\n3. Type /setup in the chat."
     },
     "ru": {
-        "start": "👋 Привет! Я @WeaYouBot (Your Weather Bot).\nЯ буду присылать погоду сюда по расписанию.\n\nЖми /setup для настройки или /help для помощи.",
+        "start": "👋 Привет! Я @WeaYouBot (Your Weather Bot).\n\n🔹 **Мгновенный прогноз:** Просто напиши **название города**.\n🔹 **Подписка:** Жми /setup, чтобы получать погоду по расписанию.\n\nЖми /help для помощи.",
         "setup_start": "🌍 Введите **название города** для поиска:",
         "city_not_found": "❌ Город не найден. Попробуйте еще раз:",
         "choose_city": "✅ Найдено несколько мест. Выберите нужное:",
@@ -47,11 +45,11 @@ TEXTS = {
         "done_daily": "✅ Готово! Погода для **{city}** каждый день в {val}:00.",
         "only_admin": "⚠️ Только администраторы могут настраивать бота.",
         
-        # --- НОВЫЙ ДИЗАЙН (RU) ---
+        "weather_msg": "🌡 <b>Сейчас в {city} ({country})</b>\n\n{desc}\nТемп: {temp}°C (Ощущается: {feels}°C)\nВетер: {wind} м/с\nВлажность: {hum}%",
+        
         "weather_msg": "📍 <b>{city} ({country})</b>\n\n🌡 Сейчас: <b>{temp}°C</b> (Ощущается как <b>{feels}°C</b>)\n\n<b>Подробности:</b>\n{desc}\n💨 Ветер: <b>{wind} м/с</b>\n💧 Влажность: <b>{hum}%</b>",
         
         "daily_msg": "📍 <b>{city} ({country})</b>\n\n🌡 Сейчас: <b>{t_now}°C</b> (Ощущается как <b>{t_feels}°C</b>)\n\n<b>Прогноз на сегодня:</b>\n{desc} (Осадки: {rain} мм)\n🌡 Температура:\n📈 Макс: <b>{t_max}°C</b>\n📉 Мин: <b>{t_min}°C</b>\n💨 Ветер (макс): <b>{wind} м/с</b>\n🌅 Восход: {sunrise} | 🌇 Закат: {sunset}",
-        # ---------------------------
 
         "settings_title": "⚙️ <b>Настройки</b>\n\n📍 Город: <b>{city}</b>\n📊 Тип: <b>{type}</b>\n🕒 Расписание: <b>{schedule}</b>",
         "btn_change_city": "🌍 Изменить город",
@@ -62,7 +60,7 @@ TEXTS = {
         "help_text": "📚 <b>Помощь и Инструкция</b>\n\n<b>Команды:</b>\n/start - Старт\n/setup - Настроить погоду\n/settings - Управление подпиской\n/help - Показать это сообщение\n\n<b>👥 Как использовать в Группах/Каналах:</b>\n1. Добавьте бота в чат.\n2. <b>Сделайте его Админом</b> (обязательно).\n3. Напишите /setup в чате."
     },
     "uk": {
-        "start": "👋 Привіт! Я @WeaYouBot (Your Weather Bot).\nЯ надсилатиму сюди погоду за розкладом.\n\nТисни /setup для налаштування або /help для довідки.",
+        "start": "👋 Привіт! Я @WeaYouBot (Your Weather Bot).\n\n🔹 **Миттєвий прогноз:** Просто напиши **назву міста**.\n🔹 **Підписка:** Тисни /setup, щоб отримувати погоду за розкладом.\n\nТисни /help для довідки.",
         "setup_start": "🌍 Введіть **назву міста** для пошуку:",
         "city_not_found": "❌ Місто не знайдено. Спробуйте ще раз:",
         "choose_city": "✅ Знайдено декілька місць. Оберіть потрібне:",
@@ -77,11 +75,9 @@ TEXTS = {
         "done_daily": "✅ Готово! Погода для **{city}** щодня о {val}:00.",
         "only_admin": "⚠️ Тільки адміністратори можуть налаштовувати бота.",
         
-        # --- НОВЫЙ ДИЗАЙН (UK) ---
         "weather_msg": "📍 <b>{city} ({country})</b>\n\n🌡 Зараз: <b>{temp}°C</b> (Відчувається як <b>{feels}°C</b>)\n\n<b>Деталі:</b>\n{desc}\n💨 Вітер: <b>{wind} м/с</b>\n💧 Вологість: <b>{hum}%</b>",
         
         "daily_msg": "📍 <b>{city} ({country})</b>\n\n🌡 Зараз: <b>{t_now}°C</b> (Відчувається як <b>{t_feels}°C</b>)\n\n<b>Прогноз на сьогодні:</b>\n{desc} (Опади: {rain} мм)\n🌡 Температура:\n📈 Макс: <b>{t_max}°C</b>\n📉 Мін: <b>{t_min}°C</b>\n💨 Вітер (макс): <b>{wind} м/с</b>\n🌅 Схід: {sunrise} | 🌇 Захід: {sunset}",
-        # ---------------------------
 
         "settings_title": "⚙️ <b>Налаштування</b>\n\n📍 Місто: <b>{city}</b>\n📊 Тип: <b>{type}</b>\n🕒 Розклад: <b>{schedule}</b>",
         "btn_change_city": "🌍 Змінити місто",
