@@ -1,9 +1,10 @@
 # Your Weather Bot 🌤️
 
-**Your Weather Bot** is a professional, asynchronous Telegram bot designed to deliver accurate weather forecasts on a user-defined schedule. Built with **Python 3.10+** and **Aiogram 3**, it supports private chats, groups, and channels.
+**Your Weather Bot** is a professional, asynchronous Telegram bot designed to deliver accurate weather forecasts. It supports both **scheduled subscriptions** and **instant one-time checks**. Built with **Python 3.10+** and **Aiogram 3**.
 
 ## 🚀 Features
 
+* **🔍 Instant Check**: Just type a city name (e.g., "London") to get a quick report without subscribing.
 * **🌍 Smart Geocoding**: Search for cities in any language with duplicate handling.
 * **📊 Dual Forecast Types**: Choose between **Current Weather** (Real-time) or **Daily Forecast** (Max/Min temp, Rain, Sunrise/Sunset).
 * **📅 Flexible Scheduling**:
@@ -30,8 +31,8 @@ The bot is perfect for group chats (family, work) or channels.
 **Instructions:**
 1. **Add the bot** to your Group or Channel.
 2. **Promote it to Administrator** (This is required for the bot to send messages).
-3. Type `/setup` in the chat.
-4. Only group admins can configure the bot.
+3. Type `/setup` in the chat to subscribe the group.
+4. Or just type a city name to check weather instantly.
 
 ## 📦 Installation
 
@@ -62,9 +63,10 @@ python bot.py
 ## 📝 Commands
 
 * `/start` - Initialize.
-* `/setup` - Configure weather.
+* `/setup` - Configure weather subscription.
 * `/settings` - Manage subscription.
 * `/help` - Show instructions.
+* **Just text** - Type any city name to check weather instantly.
 
 ## 📄 License
 

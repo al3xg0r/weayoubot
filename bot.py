@@ -99,7 +99,7 @@ def update_last_run(chat_id):
 async def search_cities(city_name, lang_code):
     if lang_code not in ['ru', 'uk', 'en', 'de', 'fr', 'pl']: 
         lang_code = 'en'
-    url = f"https://geocoding-api.open-meteo.com/v1/search?name={city_name}&count=10&language={lang_code}&format=json"
+    url = f"https://geocoding-api.open-meteo.com/v1/search?name={city_name}&count=5&language={lang_code}&format=json"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as resp:
             data = await resp.json()
@@ -108,7 +108,6 @@ async def search_cities(city_name, lang_code):
 
 async def get_weather(lat, lon, mode='current'):
     if mode == 'daily':
-        # API Update: added apparent_temperature to current
         url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,wind_speed_10m_max&current=temperature_2m,apparent_temperature&wind_speed_unit=ms&timezone=auto&forecast_days=1"
     else:
         url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&wind_speed_unit=ms&timezone=auto"
@@ -126,6 +125,11 @@ class SetupState(StatesGroup):
     waiting_interval = State()
     waiting_time = State()
 
+# НОВЫЙ СТЕЙТ ДЛЯ РАЗОВОГО ЗАПРОСА
+class OneTimeState(StatesGroup):
+    waiting_city_selection = State()
+    waiting_forecast_type = State()
+
 router = Router()
 
 def get_flag(country_code):
@@ -137,7 +141,7 @@ def get_user_lang(user: types.User):
     lang = user.language_code.split('-')[0]
     return lang if lang in TEXTS else 'en'
 
-# --- ХЕНДЛЕРЫ ---
+# --- ХЕНДЛЕРЫ КОМАНД ---
 
 @router.message(Command("start"))
 async def cmd_start(message: types.Message):
@@ -163,7 +167,114 @@ async def cmd_setup(message: types.Message, state: FSMContext):
     await state.set_state(SetupState.waiting_city_input)
     await message.answer(get_text(lang, "setup_start"))
 
-# --- МЕНЮ НАСТРОЕК (/settings) ---
+# --- НОВЫЙ ХЕНДЛЕР: ОБРАБОТКА ТЕКСТА (РАЗОВЫЙ ЗАПРОС) ---
+@router.message(F.text & ~F.text.startswith("/"))
+async def process_text_search(message: types.Message, state: FSMContext):
+    # Если мы уже в каком-то состоянии (настройка), игнорируем или обрабатываем там
+    current_state = await state.get_state()
+    if current_state:
+        return 
+
+    lang = get_user_lang(message.from_user)
+    cities = await search_cities(message.text, lang)
+    
+    if not cities:
+        # Для разового запроса можно не отвечать "не найдено", чтобы не спамить в чатах,
+        # но в ЛС лучше ответить.
+        if message.chat.type == 'private':
+            await message.answer(get_text(lang, "city_not_found"))
+        return
+
+    # Сохраняем данные для разового запроса
+    await state.update_data(lang=lang, cities_cache=cities)
+    
+    kb_builder = []
+    for city in cities[:5]:
+        flag = get_flag(city.get("country_code", "XX"))
+        country = city.get("country", "")
+        name = city.get("name", "")
+        region = city.get("admin1", "")
+        btn_text = f"{flag} {name}, {country}"
+        if region: btn_text += f" ({region})"
+        # Используем префикс ot_city_ (OneTime), чтобы не путать с подпиской
+        kb_builder.append([InlineKeyboardButton(text=btn_text, callback_data=f"ot_city_{cities.index(city)}")])
+    
+    await message.answer(get_text(lang, "choose_city"), reply_markup=InlineKeyboardMarkup(inline_keyboard=kb_builder))
+    await state.set_state(OneTimeState.waiting_city_selection)
+
+# --- ЛОГИКА РАЗОВОГО ЗАПРОСА (ONE TIME) ---
+
+@router.callback_query(OneTimeState.waiting_city_selection, F.data.startswith("ot_city_"))
+async def process_onetime_city(callback: CallbackQuery, state: FSMContext):
+    idx = int(callback.data.split("_")[2]) # ot_city_0 -> 0
+    data = await state.get_data()
+    selected_city = data['cities_cache'][idx]
+    
+    await state.update_data(
+        city=selected_city['name'],
+        country=selected_city.get('country_code', 'XX'),
+        lat=selected_city['latitude'],
+        lon=selected_city['longitude']
+    )
+    
+    lang = data['lang']
+    # Спрашиваем тип прогноза (как в настройках)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=get_text(lang, "btn_current"), callback_data="ot_type_current")],
+        [InlineKeyboardButton(text=get_text(lang, "btn_daily"), callback_data="ot_type_daily")]
+    ])
+    
+    await callback.message.edit_text(get_text(lang, "choose_type"), reply_markup=kb)
+    await state.set_state(OneTimeState.waiting_forecast_type)
+
+@router.callback_query(OneTimeState.waiting_forecast_type, F.data.startswith("ot_type_"))
+async def process_onetime_result(callback: CallbackQuery, state: FSMContext):
+    ftype = callback.data.split("_")[2] # ot_type_daily -> daily
+    data = await state.get_data()
+    lang = data['lang']
+    
+    try:
+        w = await get_weather(data['lat'], data['lon'], ftype)
+        
+        if ftype == 'daily':
+            daily = w['daily']
+            curr = w['current']
+            msg = get_text(
+                lang, "daily_msg",
+                city=data['city'],
+                country=get_flag(data['country']),
+                desc=get_wmo(daily['weather_code'][0], lang),
+                t_now=curr['temperature_2m'],
+                t_feels=curr['apparent_temperature'],
+                t_max=daily['temperature_2m_max'][0],
+                t_min=daily['temperature_2m_min'][0],
+                rain=daily['precipitation_sum'][0],
+                wind=daily['wind_speed_10m_max'][0],
+                sunrise=daily['sunrise'][0].split('T')[1],
+                sunset=daily['sunset'][0].split('T')[1]
+            )
+        else:
+            msg = get_text(
+                lang, "weather_msg",
+                city=data['city'],
+                country=get_flag(data['country']),
+                desc=get_wmo(w['weather_code'], lang),
+                temp=w['temperature_2m'],
+                feels=w['apparent_temperature'],
+                wind=w['wind_speed_10m'],
+                hum=w['relative_humidity_2m']
+            )
+        
+        await callback.message.edit_text(msg, parse_mode="HTML")
+    except Exception as e:
+        logging.error(f"Error in onetime: {e}")
+        await callback.message.edit_text("⚠️ Error fetching weather.")
+    
+    # Очищаем стейт, так как запрос выполнен и сохранять ничего не надо
+    await state.clear()
+
+
+# --- НАСТРОЙКИ И SETUP (ПРЕЖНИЙ КОД) ---
 @router.message(Command("settings"))
 async def cmd_settings(message: types.Message, state: FSMContext):
     if message.chat.type in ['group', 'supergroup', 'channel']:
@@ -241,7 +352,6 @@ async def settings_time(callback: CallbackQuery, state: FSMContext):
     )
     await state.set_state(SetupState.waiting_interval)
 
-# --- ЛОГИКА НАСТРОЙКИ (SETUP) ---
 @router.message(SetupState.waiting_city_input)
 async def process_city_search(message: types.Message, state: FSMContext):
     data = await state.get_data()
@@ -339,40 +449,33 @@ async def process_time_input(message: types.Message, state: FSMContext):
     await message.answer(get_text(lang, "done_daily", city=data['city'], val=hour))
     await state.clear()
 
-# --- ПЛАНИРОВЩИК ---
 async def sender_job(bot: Bot):
     subs = get_all_subscriptions()
     now = datetime.now()
-    
     for sub in subs:
         should_send = False
         last_run = datetime.fromisoformat(sub['last_run']) if isinstance(sub['last_run'], str) else sub['last_run']
-        
         if sub['interval_hours'] == 24:
             if now.hour == sub['target_hour'] and (now - last_run).total_seconds() > 3600 * 20:
                 should_send = True
         else:
             if (now - last_run).total_seconds() >= sub['interval_hours'] * 3600:
                 should_send = True
-
         if should_send:
             try:
                 lang = sub['lang_code']
                 ftype = sub['forecast_type']
-                
                 w = await get_weather(sub['lat'], sub['lon'], ftype)
-                
                 if ftype == 'daily':
                     daily = w['daily']
                     curr = w['current']
-                    
                     msg = get_text(
                         lang, "daily_msg",
                         city=sub['city_name'],
                         country=get_flag(sub['country_code']),
                         desc=get_wmo(daily['weather_code'][0], lang),
                         t_now=curr['temperature_2m'],
-                        t_feels=curr['apparent_temperature'], # Новое поле
+                        t_feels=curr['apparent_temperature'],
                         t_max=daily['temperature_2m_max'][0],
                         t_min=daily['temperature_2m_min'][0],
                         rain=daily['precipitation_sum'][0],
@@ -391,7 +494,6 @@ async def sender_job(bot: Bot):
                         wind=w['wind_speed_10m'],
                         hum=w['relative_humidity_2m']
                     )
-                
                 await bot.send_message(sub['chat_id'], msg, parse_mode="HTML")
                 update_last_run(sub['chat_id'])
             except Exception as e:
