@@ -109,7 +109,6 @@ async def search_cities(city_name, lang_code):
             return data["results"]
 
 async def get_weather(lat, lon, mode='current'):
-    # Добавлен режим 'weekly' (запрос на 7 дней)
     if mode == 'daily':
         url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,wind_speed_10m_max&current=temperature_2m,apparent_temperature&wind_speed_unit=ms&timezone=auto&forecast_days=1"
     elif mode == 'weekly':
@@ -216,14 +215,14 @@ async def process_onetime_city(callback: CallbackQuery, state: FSMContext):
     )
     
     lang = data['lang']
-    # Добавлена кнопка Weekly
+    # В разовом запросе ОСТАВЛЯЕМ 3 кнопки
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=get_text(lang, "btn_current"), callback_data="ot_type_current")],
         [InlineKeyboardButton(text=get_text(lang, "btn_daily"), callback_data="ot_type_daily")],
         [InlineKeyboardButton(text=get_text(lang, "btn_weekly"), callback_data="ot_type_weekly")]
     ])
     
-    await callback.message.edit_text(get_text(lang, "choose_type"), reply_markup=kb)
+    await callback.message.edit_text(get_text(lang, "choose_type_once"), reply_markup=kb)
     await state.set_state(OneTimeState.waiting_forecast_type)
 
 @router.callback_query(OneTimeState.waiting_forecast_type, F.data.startswith("ot_type_"))
@@ -262,7 +261,6 @@ async def process_onetime_result(callback: CallbackQuery, state: FSMContext):
                 t_max = daily['temperature_2m_max'][i]
                 t_min = daily['temperature_2m_min'][i]
                 
-                # Извлекаем только эмодзи из get_wmo
                 desc_full = get_wmo(w_code, lang)
                 emoji = desc_full.split()[0]
                 
@@ -317,7 +315,6 @@ async def cmd_settings(message: types.Message, state: FSMContext):
     
     ftype = sub['forecast_type'] if 'forecast_type' in sub.keys() else 'current'
     
-    # Определяем название типа для меню настроек
     if ftype == 'daily':
         type_display = get_text(lang, "btn_daily")
     elif ftype == 'weekly':
@@ -418,14 +415,14 @@ async def process_city_selection(callback: CallbackQuery, state: FSMContext):
     )
     
     lang = data['lang']
-    # Кнопка Weekly для настроек
+    
+    # ИЗМЕНЕНИЕ: В настройках ПОДПИСКИ теперь только 2 кнопки
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=get_text(lang, "btn_current"), callback_data="type_current")],
-        [InlineKeyboardButton(text=get_text(lang, "btn_daily"), callback_data="type_daily")],
-        [InlineKeyboardButton(text=get_text(lang, "btn_weekly"), callback_data="type_weekly")]
+        [InlineKeyboardButton(text=get_text(lang, "btn_daily"), callback_data="type_daily")]
     ])
     
-    await callback.message.edit_text(get_text(lang, "choose_type"), reply_markup=kb)
+    await callback.message.edit_text(get_text(lang, "choose_type_sub"), reply_markup=kb)
     await state.set_state(SetupState.waiting_forecast_type)
 
 @router.callback_query(SetupState.waiting_forecast_type, F.data.startswith("type_"))
