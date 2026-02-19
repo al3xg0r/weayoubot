@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
 from aiogram import Bot, Dispatcher, Router, F, types
-# Добавлен импорт DefaultBotProperties
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import Command, StateFilter
@@ -110,15 +109,21 @@ async def search_cities(city_name, lang_code):
             return data["results"]
 
 async def get_weather(lat, lon, mode='current'):
+    # Добавлен режим 'weekly' (запрос на 7 дней)
     if mode == 'daily':
         url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,wind_speed_10m_max&current=temperature_2m,apparent_temperature&wind_speed_unit=ms&timezone=auto&forecast_days=1"
+    elif mode == 'weekly':
+        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=7"
     else:
         url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&wind_speed_unit=ms&timezone=auto"
         
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as resp:
             data = await resp.json()
-            return data if mode == 'daily' else data.get('current')
+            if mode in ['daily', 'weekly']:
+                return data
+            else:
+                return data.get('current')
 
 # --- СТЕЙТЫ И УТИЛИТЫ ---
 class SetupState(StatesGroup):
@@ -153,7 +158,7 @@ async def cmd_start(message: types.Message):
 @router.message(Command("help"))
 async def cmd_help(message: types.Message):
     lang = get_user_lang(message.from_user)
-    await message.answer(get_text(lang, "help_text")) # parse_mode global
+    await message.answer(get_text(lang, "help_text"))
 
 @router.message(Command("setup"))
 async def cmd_setup(message: types.Message, state: FSMContext):
@@ -211,9 +216,11 @@ async def process_onetime_city(callback: CallbackQuery, state: FSMContext):
     )
     
     lang = data['lang']
+    # Добавлена кнопка Weekly
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=get_text(lang, "btn_current"), callback_data="ot_type_current")],
-        [InlineKeyboardButton(text=get_text(lang, "btn_daily"), callback_data="ot_type_daily")]
+        [InlineKeyboardButton(text=get_text(lang, "btn_daily"), callback_data="ot_type_daily")],
+        [InlineKeyboardButton(text=get_text(lang, "btn_weekly"), callback_data="ot_type_weekly")]
     ])
     
     await callback.message.edit_text(get_text(lang, "choose_type"), reply_markup=kb)
@@ -244,6 +251,28 @@ async def process_onetime_result(callback: CallbackQuery, state: FSMContext):
                 wind=daily['wind_speed_10m_max'][0],
                 sunrise=daily['sunrise'][0].split('T')[1],
                 sunset=daily['sunset'][0].split('T')[1]
+            )
+        elif ftype == 'weekly':
+            daily = w['daily']
+            lines = []
+            for i in range(7):
+                dt = datetime.strptime(daily['time'][i], "%Y-%m-%d")
+                short_date = dt.strftime("%d.%m")
+                w_code = daily['weather_code'][i]
+                t_max = daily['temperature_2m_max'][i]
+                t_min = daily['temperature_2m_min'][i]
+                
+                # Извлекаем только эмодзи из get_wmo
+                desc_full = get_wmo(w_code, lang)
+                emoji = desc_full.split()[0]
+                
+                lines.append(f"▪️ {short_date}: {emoji} <b>{t_min}°C</b> … <b>{t_max}°C</b>")
+            
+            msg = get_text(
+                lang, "weekly_msg",
+                city=data['city'],
+                country=get_flag(data['country']),
+                forecast_text="\n".join(lines)
             )
         else:
             msg = get_text(
@@ -287,7 +316,14 @@ async def cmd_settings(message: types.Message, state: FSMContext):
         sched = f"Every {sub['interval_hours']} hours"
     
     ftype = sub['forecast_type'] if 'forecast_type' in sub.keys() else 'current'
-    type_display = get_text(lang, "btn_daily") if ftype == 'daily' else get_text(lang, "btn_current")
+    
+    # Определяем название типа для меню настроек
+    if ftype == 'daily':
+        type_display = get_text(lang, "btn_daily")
+    elif ftype == 'weekly':
+        type_display = get_text(lang, "btn_weekly")
+    else:
+        type_display = get_text(lang, "btn_current")
 
     text = get_text(lang, "settings_title", city=sub['city_name'], type=type_display, schedule=sched)
     
@@ -382,9 +418,11 @@ async def process_city_selection(callback: CallbackQuery, state: FSMContext):
     )
     
     lang = data['lang']
+    # Кнопка Weekly для настроек
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=get_text(lang, "btn_current"), callback_data="type_current")],
-        [InlineKeyboardButton(text=get_text(lang, "btn_daily"), callback_data="type_daily")]
+        [InlineKeyboardButton(text=get_text(lang, "btn_daily"), callback_data="type_daily")],
+        [InlineKeyboardButton(text=get_text(lang, "btn_weekly"), callback_data="type_weekly")]
     ])
     
     await callback.message.edit_text(get_text(lang, "choose_type"), reply_markup=kb)
@@ -457,6 +495,7 @@ async def sender_job(bot: Bot):
                 lang = sub['lang_code']
                 ftype = sub['forecast_type']
                 w = await get_weather(sub['lat'], sub['lon'], ftype)
+                
                 if ftype == 'daily':
                     daily = w['daily']
                     curr = w['current']
@@ -473,6 +512,27 @@ async def sender_job(bot: Bot):
                         wind=daily['wind_speed_10m_max'][0],
                         sunrise=daily['sunrise'][0].split('T')[1],
                         sunset=daily['sunset'][0].split('T')[1]
+                    )
+                elif ftype == 'weekly':
+                    daily = w['daily']
+                    lines = []
+                    for i in range(7):
+                        dt = datetime.strptime(daily['time'][i], "%Y-%m-%d")
+                        short_date = dt.strftime("%d.%m")
+                        w_code = daily['weather_code'][i]
+                        t_max = daily['temperature_2m_max'][i]
+                        t_min = daily['temperature_2m_min'][i]
+                        
+                        desc_full = get_wmo(w_code, lang)
+                        emoji = desc_full.split()[0]
+                        
+                        lines.append(f"▪️ {short_date}: {emoji} <b>{t_min}°C</b> … <b>{t_max}°C</b>")
+                    
+                    msg = get_text(
+                        lang, "weekly_msg",
+                        city=sub['city_name'],
+                        country=get_flag(sub['country_code']),
+                        forecast_text="\n".join(lines)
                     )
                 else:
                     msg = get_text(
@@ -492,7 +552,6 @@ async def sender_job(bot: Bot):
 
 async def main():
     init_db()
-    # ИЗМЕНЕНИЕ: Включаем глобальный режим HTML
     bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
     dp = Dispatcher()
     dp.include_router(router)
