@@ -6,7 +6,10 @@
 
 * **🔍 Instant Check**: Just type a city name (e.g., "London") to get a quick report without subscribing.
 * **🌍 Smart Geocoding**: Search for cities in any language with duplicate handling.
-* **📊 Dual Forecast Types**: Choose between **Current Weather** (Real-time) or **Daily Forecast** (Max/Min temp, Rain, Sunrise/Sunset).
+* **📊 Forecast Types**: 
+    * 🔹 **Current Weather**: Real-time conditions.
+    * 🔸 **Daily Forecast**: Max/Min temp, Rain, Sunrise/Sunset.
+    * 📅 **7-Day Weekly Forecast**: Short overview for the upcoming week *(available for Instant Checks only)*.
 * **📅 Flexible Scheduling**:
     * Every 2 hours
     * Every 12 hours
